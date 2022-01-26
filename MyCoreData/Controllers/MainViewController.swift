@@ -6,29 +6,28 @@
 //
 
 import UIKit
+import CoreData
 
 class MainViewController: UITableViewController {
-
-    private let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-    
+        
     private let cellID = "task"
-    private var taskList: [Task] = []
-    
+    private var taskList = StorageManager.shared.fetchData()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: cellID)
-        setupNavBar()
-        fetchData()
+        setupNavigationBar()
+        
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        fetchData()
+        
         tableView.reloadData()
     }
-
-    private func setupNavBar() {
+ 
+    private func setupNavigationBar() {
         title = "Task List"
         navigationController?.navigationBar.prefersLargeTitles = true
         
@@ -41,10 +40,12 @@ class MainViewController: UITableViewController {
             red: 21/255,
             green: 101/255,
             blue: 192/255,
-            alpha: 194/255)
+            alpha: 194/255
+        )
         
         navigationController?.navigationBar.standardAppearance = navBarAppearence
         navigationController?.navigationBar.scrollEdgeAppearance = navBarAppearence
+        
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .add,
             target: self,
@@ -52,23 +53,23 @@ class MainViewController: UITableViewController {
         )
         
         navigationController?.navigationBar.tintColor = .white
+        
     }
     
     @objc private func addNewTask() {
-        let newTaskVC = TaskViewController()
-        newTaskVC.modalPresentationStyle = .fullScreen
-        present(newTaskVC, animated: true)
+        showAlert()
     }
     
-    private func fetchData() {
-        let fetchRequest = Task.fetchRequest()
-        
-        do {
-            taskList = try context.fetch(fetchRequest)
-        } catch {
-            print("Failed to fetch data", error)
+    private func save(task: String) {
+            StorageManager.shared.save(task) { task in
+                self.taskList.append(task)
+                self.tableView.insertRows(
+                    at: [IndexPath(row: self.taskList.count - 1, section: 0)],
+                    with: .left
+                )
+            }
         }
-    }
+    
 }
 
 extension MainViewController {
@@ -82,9 +83,52 @@ extension MainViewController {
         
         var content = cell.defaultContentConfiguration()
         content.text = task.name
-        
         cell.contentConfiguration = content
-        
         return cell
+    }
+    
+    // Edit row
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let task = taskList[indexPath.row]
+        showAlert(task: task) {
+            tableView.reloadRows(at: [indexPath], with: .automatic)
+        }
+    }
+    
+    // Delete row
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        let task = taskList[indexPath.row]
+        
+        if editingStyle == .delete {
+            taskList.remove(at: indexPath.row)
+            tableView.deleteRows(at: [indexPath], with: .automatic)
+            StorageManager.shared.delete(task)
+        }
+    }
+}
+//MARK: - Alert
+extension MainViewController {
+    
+    private func showAlert(task: Task? = nil, completion: (() -> Void)? = nil) {
+        
+        let title = task != nil ? "Update Task" : "New Task"
+        
+        let alert = AlertController(
+            title: title,
+            message: "What do you want to do?",
+            preferredStyle: .alert
+        )
+        
+        alert.action(task: task) { taskName in
+            if let task = task, let completion = completion {
+                StorageManager.shared.edit(task, newTaskName: taskName)
+                completion()
+            } else {
+                self.save(task: taskName)
+            }
+        }
+        
+        present(alert, animated: true)
     }
 }
