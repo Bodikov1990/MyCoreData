@@ -6,8 +6,11 @@
 //
 
 import UIKit
+import CoreData
 
 class TaskViewController: UIViewController {
+    
+    private let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     private lazy var taskTextField: UITextField = {
        let textField = UITextField()
@@ -25,7 +28,7 @@ class TaskViewController: UIViewController {
                 green: 101/255,
                 blue: 192/255,
                 alpha: 194/255),
-            action: UIAction { _ in self.dismiss(animated: true)})
+            action: UIAction { _ in self.save()})
     }()
     
     private lazy var cancelButton: UIButton = {
@@ -85,5 +88,28 @@ class TaskViewController: UIViewController {
         buttonCofig.attributedTitle = AttributedString(title, attributes: atributes)
         
         return UIButton(configuration: buttonCofig, primaryAction: action)
+    }
+    
+    private func save() {
+//        Для сложных моделей с вложенными моделями!
+//        guard let entityDescription = NSEntityDescription.entity(forEntityName: "Task", in: context) else { return }
+//        guard let task = NSManagedObject(entity: entityDescription, insertInto: context) as? Task else { return }
+        
+        
+//        Для простой модели
+        let task = Task(context: context)
+        
+        task.name = taskTextField.text
+        
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                let nserror = error as NSError
+                fatalError("Unresolved error \(nserror), \(nserror.userInfo)")
+            }
+        }
+        
+        dismiss(animated: true)
     }
 }
